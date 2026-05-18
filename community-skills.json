@@ -5,11 +5,7 @@
     { "spec": "anthropics/claude-plugins-official", "note": "frontend-design, claude-api, etc." },
     { "spec": "supabase/agent-skills", "note": "supabase + postgres-best-practices" },
     { "spec": "Leonxlnx/taste-skill", "note": "3-dial frontend iteration" },
-    { "spec": "thepushkarp/handoff", "note": "session handoff + PreCompact hook" },
-    { "spec": "hanfang/claude-memory-skill", "note": "claude-memory pattern" },
-    { "spec": "grandamenium/dream-skill", "note": "James's own dream consolidation" },
-    { "spec": "grandamenium/local-ultrareview", "note": "James's own ultrareview pipeline" },
-    { "spec": "grandamenium/m2c1", "note": "James's own m2c1 orchestration framework" }
+    { "spec": "thepushkarp/handoff", "note": "session handoff + PreCompact hook" }
   ],
 
   "plugins_to_install": [
