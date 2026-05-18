@@ -13,24 +13,26 @@
   ],
 
   "plugins_to_install": [
-    { "name": "frontend-design", "marketplace": "anthropics/claude-plugins-official", "ref": "stable" },
-    { "name": "claude-api", "marketplace": "anthropics/claude-plugins-official", "ref": "stable" },
-    { "name": "supabase", "marketplace": "supabase/agent-skills", "ref": "stable" },
-    { "name": "postgres-best-practices", "marketplace": "supabase/agent-skills", "ref": "stable" },
-    { "name": "taste-skill", "marketplace": "Leonxlnx/taste-skill", "ref": "stable" },
-    { "name": "handoff", "marketplace": "thepushkarp/handoff", "ref": "stable" },
-    { "name": "claude-memory-skill", "marketplace": "hanfang/claude-memory-skill", "ref": "stable" },
-    { "name": "dream-skill", "marketplace": "grandamenium/dream-skill", "ref": "stable" },
-    { "name": "local-ultrareview", "marketplace": "grandamenium/local-ultrareview", "ref": "stable" },
-    { "name": "m2c1", "marketplace": "grandamenium/m2c1", "ref": "stable" }
+    { "name": "frontend-design", "marketplace": "claude-plugins-official", "ref": "stable" },
+    { "name": "supabase", "marketplace": "supabase-agent-skills", "ref": "stable" },
+    { "name": "postgres-best-practices", "marketplace": "supabase-agent-skills", "ref": "stable" },
+    { "name": "handoff", "marketplace": "handoff", "ref": "stable" }
+  ],
+
+  "legacy_skills_to_install": [
+    { "name": "taste-skill", "repo": "https://github.com/Leonxlnx/taste-skill.git", "path": "skills/taste-skill" },
+    { "name": "claude-memory-skill", "repo": "https://github.com/hanfang/claude-memory-skill.git", "path": "skill/mem.md" },
+    { "name": "dream-skill", "repo": "https://github.com/grandamenium/dream-skill.git", "path": "SKILL.md" },
+    { "name": "local-ultrareview", "repo": "https://github.com/grandamenium/local-ultrareview.git", "path": "SKILL.md" },
+    { "name": "m2c1", "repo": "https://github.com/grandamenium/m2c1.git", "path": "SKILL.md" }
   ],
 
   "non_plugin_components": [
     {
-      "name": "GSD-classic",
+      "name": "GSD",
       "type": "external-cli",
-      "install_command": "npm install -g gsd-classic",
-      "verify_command": "gsd --version",
+      "install_command": "npm install -g get-shit-done-cc",
+      "verify_command": "get-shit-done-cc --version",
       "note": "Small-project methodology spine. Used in Track 2 Modules 2-8."
     },
     {

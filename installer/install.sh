@@ -461,9 +461,10 @@ install_community_skills() {
     return 0
   fi
 
-  local marketplaces plugins
+  local marketplaces plugins legacy_skills
   marketplaces=$(jq -r '.marketplaces_to_add[].spec' "$manifest" 2>/dev/null || true)
   plugins=$(jq -r '.plugins_to_install[] | "\(.name)@\(.marketplace)"' "$manifest" 2>/dev/null || true)
+  legacy_skills=$(jq -c '.legacy_skills_to_install[]?' "$manifest" 2>/dev/null || true)
 
   if [[ -n "$marketplaces" ]]; then
     while IFS= read -r mp; do
@@ -487,19 +488,50 @@ install_community_skills() {
     done <<< "$plugins"
   fi
 
+  if [[ -n "$legacy_skills" ]]; then
+    local skills_dir="$CLAUDE_DIR/skills"
+    mkdir -p "$skills_dir"
+    while IFS= read -r skill; do
+      [[ -z "$skill" ]] && continue
+      local name repo path work target
+      name="$(jq -r '.name' <<< "$skill")"
+      repo="$(jq -r '.repo' <<< "$skill")"
+      path="$(jq -r '.path' <<< "$skill")"
+      work="$(mktemp -d -t aa-skill.XXXXXX)"
+      target="$skills_dir/$name"
+      if git clone --depth 1 "$repo" "$work/src" >/dev/null 2>&1; then
+        rm -rf "$target"
+        mkdir -p "$target"
+        if [[ -d "$work/src/$path" ]]; then
+          cp -R "$work/src/$path"/. "$target"/
+        elif [[ -f "$work/src/$path" ]]; then
+          cp "$work/src/$path" "$target/SKILL.md"
+        else
+          warn "legacy skill path missing: $name ($path)"
+          rm -rf "$work"
+          continue
+        fi
+        ok "legacy skill: $name"
+      else
+        warn "legacy skill clone failed: $name ($repo)"
+      fi
+      rm -rf "$work"
+    done <<< "$legacy_skills"
+  fi
+
   # GSD-classic via npm (separate path)
   if command -v npm >/dev/null 2>&1; then
-    if ! command -v gsd >/dev/null 2>&1; then
-      if npm install -g gsd-classic >/dev/null 2>&1; then
-        ok "GSD-classic installed via npm"
+    if ! command -v get-shit-done-cc >/dev/null 2>&1; then
+      if npm install -g get-shit-done-cc >/dev/null 2>&1; then
+        ok "GSD installed via npm"
       else
-        warn "GSD-classic install failed (npm install -g gsd-classic)"
+        warn "GSD install failed (npm install -g get-shit-done-cc)"
       fi
     else
-      info "GSD-classic already installed"
+      info "GSD already installed"
     fi
   else
-    warn "npm not in PATH — cannot install GSD-classic. Run later: npm install -g gsd-classic"
+    warn "npm not in PATH — cannot install GSD. Run later: npm install -g get-shit-done-cc"
   fi
 }
 
