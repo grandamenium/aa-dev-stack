@@ -51,7 +51,7 @@ SANITIZED=$(printf '%s' "$CONTENT" \
 for entry in "${PATTERNS[@]}"; do
   label="${entry%%|*}"
   regex="${entry#*|}"
-  if printf '%s' "$SANITIZED" | grep -qE "$regex"; then
+  if printf '%s' "$SANITIZED" | grep -qE -- "$regex"; then
     aa_log "secret-scan BLOCK: $label"
     cat >&2 <<EOF
 BLOCKED by secret-scan: detected pattern "$label".

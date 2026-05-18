@@ -7,17 +7,29 @@
 AA_HOOKS_CONFIG="${AA_HOOKS_CONFIG:-$HOME/.claude/aa-hooks.json}"
 
 # Return 0 if hook is enabled. Default to enabled (fail open on missing config).
-# Project-level override at ${CLAUDE_PROJECT_DIR}/.claude/aa-hooks.json takes
-# precedence over global.
+# Project-level override at ${CLAUDE_PROJECT_DIR}/.aa-hooks.json takes
+# precedence over global. The legacy ${CLAUDE_PROJECT_DIR}/.claude/aa-hooks.json
+# path is still honored for compatibility.
 aa_hook_enabled() {
   local name="$1"
-  local project_cfg="${CLAUDE_PROJECT_DIR:-.}/.claude/aa-hooks.json"
+  local project_root="${CLAUDE_PROJECT_DIR:-.}"
+  local project_cfg="$project_root/.aa-hooks.json"
+  local legacy_project_cfg="$project_root/.claude/aa-hooks.json"
 
   if [ -f "$project_cfg" ] && command -v jq >/dev/null 2>&1; then
     local override
     override=$(jq -r --arg n "$name" '.hooks[$n].enabled // empty' "$project_cfg" 2>/dev/null)
     if [ -n "$override" ]; then
       [ "$override" = "true" ]
+      return $?
+    fi
+  fi
+
+  if [ -f "$legacy_project_cfg" ] && command -v jq >/dev/null 2>&1; then
+    local legacy_override
+    legacy_override=$(jq -r --arg n "$name" '.hooks[$n].enabled // empty' "$legacy_project_cfg" 2>/dev/null)
+    if [ -n "$legacy_override" ]; then
+      [ "$legacy_override" = "true" ]
       return $?
     fi
   fi

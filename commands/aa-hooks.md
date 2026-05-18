@@ -1,6 +1,6 @@
 ---
 description: Toggle AA hooks on/off (enable|disable|list|on|off)
-allowed-tools: Bash(cat:*), Bash(jq:*), Bash(mkdir:*), Bash(mv:*), Bash(printf:*), Bash(test:*)
+allowed-tools: Bash(cat:*), Bash(jq:*), Bash(mkdir:*), Bash(mv:*), Bash(printf:*), Bash(test:*), Write
 argument-hint: "[enable|disable|list|on|off] [hook-name]"
 ---
 
@@ -17,9 +17,9 @@ $ARGUMENTS
 
 Parse $ARGUMENTS:
 
-- empty or `list` → read `~/.claude/aa-hooks.json` with Bash and print a status table showing each hook and whether it's currently enabled
-- `enable <name>` → read `~/.claude/aa-hooks.json`, set `hooks.<name>.enabled = true`, write the file, confirm
-- `disable <name>` → read `~/.claude/aa-hooks.json`, set `hooks.<name>.enabled = false`, write the file, confirm
+- empty or `list` → read global `~/.claude/aa-hooks.json` and project-local `.aa-hooks.json` with Bash, then print a status table showing each hook and whether it is currently enabled. Project-local settings override global settings.
+- `enable <name>` → write `hooks.<name>.enabled = true` to project-local `.aa-hooks.json`, then confirm
+- `disable <name>` → write `hooks.<name>.enabled = false` to project-local `.aa-hooks.json`, then confirm
 - `on` → enable all 7 hooks
 - `off` → disable all 7 hooks
 - bad input → show usage:
@@ -38,7 +38,7 @@ Examples:
 
 ## State file shape
 
-`~/.claude/aa-hooks.json` (the hook scripts read this on every fire — no restart needed):
+Global state lives at `~/.claude/aa-hooks.json`; project overrides live at `.aa-hooks.json`. The hook scripts read project overrides on every fire before falling back to global state, so project changes do not need a restart:
 
 ```json
 {
@@ -55,8 +55,17 @@ Examples:
 }
 ```
 
-When writing, preserve the version field and any unknown hook keys (forward compatibility).
+When writing project-local `.aa-hooks.json`, preserve the version field and any unknown hook keys (forward compatibility).
 
-Make sure `~/.claude/` exists (`mkdir -p`) before writing.
+Use `$HOME/.claude/aa-hooks.json` instead of a literal `~` path when reading global state. Use `.aa-hooks.json` when writing project overrides. If a file does not exist, treat it as `{"version":1,"hooks":{}}`.
 
-Use `$HOME/.claude/aa-hooks.json` instead of a literal `~` path in Bash commands. If the file does not exist, treat it as `{"version":1,"hooks":{}}`.
+Use Bash for reads. Use Bash or Write for project-local `.aa-hooks.json` writes only. Do not use Read. Do not use Python. Do not use absolute paths like `/Users/.../.claude/aa-hooks.json`.
+
+For writes, run small separate Bash commands rather than one chained command:
+
+1. If the project file is missing: `printf '%s\n' '{"version":1,"hooks":{}}' > .aa-hooks.json`
+2. For `enable <name>`:
+   `jq --arg hook "<name>" '.version = (.version // 1) | .hooks = (.hooks // {}) | .hooks[$hook] = ((.hooks[$hook] // {}) + {"enabled": true})' .aa-hooks.json > .aa-hooks.json.tmp`
+3. For `disable <name>`:
+   `jq --arg hook "<name>" '.version = (.version // 1) | .hooks = (.hooks // {}) | .hooks[$hook] = ((.hooks[$hook] // {}) + {"enabled": false})' .aa-hooks.json > .aa-hooks.json.tmp`
+4. `mv .aa-hooks.json.tmp .aa-hooks.json`
