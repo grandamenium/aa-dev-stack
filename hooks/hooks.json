@@ -1,5 +1,7 @@
 {
-  "PreToolUse": [
+  "description": "AA Dev Stack guardrails and workflow hooks",
+  "hooks": {
+    "PreToolUse": [
     {
       "matcher": "Edit|Write|MultiEdit",
       "hooks": [
@@ -13,29 +15,30 @@
         { "type": "command", "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/git-push-guard.sh" }
       ]
     }
-  ],
-  "PostToolUse": [
+    ],
+    "PostToolUse": [
     {
       "matcher": "Edit|Write|MultiEdit",
       "hooks": [
         { "type": "command", "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/auto-format.sh" }
       ]
     }
-  ],
-  "Stop": [
+    ],
+    "Stop": [
     {
       "hooks": [
-        { "type": "command", "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/typecheck-on-stop.sh", "timeout_seconds": 20 },
-        { "type": "command", "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/test-affected-on-stop.sh", "timeout_seconds": 20 }
+        { "type": "command", "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/typecheck-on-stop.sh", "timeout": 20 },
+        { "type": "command", "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/test-affected-on-stop.sh", "timeout": 20 }
       ]
     }
-  ],
-  "SessionStart": [
+    ],
+    "SessionStart": [
     {
       "matcher": "startup|resume|clear",
       "hooks": [
         { "type": "command", "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/session-start-context.sh" }
       ]
     }
-  ]
+    ]
+  }
 }

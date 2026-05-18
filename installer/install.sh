@@ -468,7 +468,7 @@ install_community_skills() {
   if [[ -n "$marketplaces" ]]; then
     while IFS= read -r mp; do
       [[ -z "$mp" ]] && continue
-      if claude plugin marketplace add "github:$mp" >/dev/null 2>&1; then
+      if claude plugin marketplace add "$mp" >/dev/null 2>&1; then
         ok "marketplace: $mp"
       else
         warn "marketplace add failed: $mp (may already be added or repo unavailable)"

@@ -70,7 +70,12 @@ fi
 # ─── 5. test-affected-on-stop is DISABLED by default ──────────────────
 banner "TEST 5: test-affected-on-stop disabled by default"
 if [[ -f "$CLAUDE_DIR/aa-hooks.json" ]] && command -v jq >/dev/null 2>&1; then
-  v=$(jq -r '.hooks["test-affected-on-stop"].enabled // "missing"' "$CLAUDE_DIR/aa-hooks.json" 2>/dev/null || echo error)
+  v=$(jq -r '
+    if (.hooks | has("test-affected-on-stop")) and (.hooks["test-affected-on-stop"] | has("enabled"))
+    then .hooks["test-affected-on-stop"].enabled
+    else "missing"
+    end
+  ' "$CLAUDE_DIR/aa-hooks.json" 2>/dev/null || echo error)
   if [[ "$v" == "false" ]]; then
     pass "test-affected-on-stop is disabled by default"
   else
