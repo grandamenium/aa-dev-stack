@@ -41,13 +41,11 @@ run_silent() {
 case "$EXT" in
   js|jsx|ts|tsx|mjs|cjs)
     if project_has biome.json || project_has biome.jsonc; then
-      command -v biome >/dev/null 2>&1 && run_silent biome format --write "$FILE" \
-        || command -v npx >/dev/null 2>&1 && run_silent npx --no-install @biomejs/biome format --write "$FILE" || true
+      command -v biome >/dev/null 2>&1 && run_silent biome format --write "$FILE" || true
     elif project_has .prettierrc || project_has .prettierrc.json || project_has .prettierrc.js \
       || project_has .prettierrc.yaml || project_has .prettierrc.yml || project_has prettier.config.js \
       || project_has prettier.config.mjs; then
-      command -v prettier >/dev/null 2>&1 && run_silent prettier --write --log-level=silent "$FILE" \
-        || command -v npx >/dev/null 2>&1 && run_silent npx --no-install prettier --write --log-level=silent "$FILE" || true
+      command -v prettier >/dev/null 2>&1 && run_silent prettier --write --log-level=silent "$FILE" || true
     else
       command -v biome >/dev/null 2>&1 && run_silent biome format --write "$FILE" 2>/dev/null \
         || command -v prettier >/dev/null 2>&1 && run_silent prettier --write --log-level=silent "$FILE" 2>/dev/null || true
@@ -57,13 +55,11 @@ case "$EXT" in
     if project_has biome.json; then
       command -v biome >/dev/null 2>&1 && run_silent biome format --write "$FILE" || true
     else
-      command -v prettier >/dev/null 2>&1 && run_silent prettier --write --log-level=silent "$FILE" \
-        || command -v npx >/dev/null 2>&1 && run_silent npx --no-install prettier --write --log-level=silent "$FILE" || true
+      command -v prettier >/dev/null 2>&1 && run_silent prettier --write --log-level=silent "$FILE" || true
     fi
     ;;
   md|mdx|yaml|yml|css|scss|html)
-    command -v prettier >/dev/null 2>&1 && run_silent prettier --write --log-level=silent "$FILE" \
-      || command -v npx >/dev/null 2>&1 && run_silent npx --no-install prettier --write --log-level=silent "$FILE" || true
+    command -v prettier >/dev/null 2>&1 && run_silent prettier --write --log-level=silent "$FILE" || true
     ;;
   py)
     if command -v ruff >/dev/null 2>&1; then
