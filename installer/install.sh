@@ -233,11 +233,19 @@ install_claudemd() {
 
   if [[ -f "$target" ]] && grep -qF "$marker_start" "$target"; then
     local tmp="${target}.tmp.$$"
-    awk -v start="$marker_start" -v end="$marker_end" -v block="$block" '
-      $0 == start { print block; skipping = 1; next }
+    local block_file="${target}.block.$$"
+    printf '%s\n' "$block" > "$block_file"
+    awk -v start="$marker_start" -v end="$marker_end" -v block_file="$block_file" '
+      $0 == start {
+        while ((getline line < block_file) > 0) print line
+        close(block_file)
+        skipping = 1
+        next
+      }
       skipping && $0 == end { skipping = 0; next }
       !skipping { print }
     ' "$target" > "$tmp"
+    rm -f "$block_file"
     mv "$tmp" "$target"
     ok "Updated managed block in $target"
   elif [[ -f "$target" ]]; then
