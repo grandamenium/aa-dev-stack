@@ -1,12 +1,8 @@
 ---
 description: Toggle AA hooks on/off (enable|disable|list|on|off)
-allowed-tools: Bash(cat:*), Bash(jq:*), Bash(mkdir:*), Write
+allowed-tools: Bash(cat:*), Bash(jq:*), Bash(mkdir:*), Bash(mv:*), Bash(printf:*), Bash(test:*)
 argument-hint: "[enable|disable|list|on|off] [hook-name]"
-disable-model-invocation: true
 ---
-
-## Current state
-!`cat ~/.claude/aa-hooks.json 2>/dev/null || echo '{"version":1,"hooks":{}}'`
 
 ## Available hooks
 secret-scan, dangerous-bash-firewall, git-push-guard, auto-format, typecheck-on-stop, test-affected-on-stop, session-start-context
@@ -21,9 +17,9 @@ $ARGUMENTS
 
 Parse $ARGUMENTS:
 
-- empty or `list` → print a status table showing each hook and whether it's currently enabled (read from the state above)
-- `enable <name>` → set `hooks.<name>.enabled = true` in `~/.claude/aa-hooks.json`, write the file, confirm
-- `disable <name>` → set `hooks.<name>.enabled = false`, write the file, confirm
+- empty or `list` → read `~/.claude/aa-hooks.json` with Bash and print a status table showing each hook and whether it's currently enabled
+- `enable <name>` → read `~/.claude/aa-hooks.json`, set `hooks.<name>.enabled = true`, write the file, confirm
+- `disable <name>` → read `~/.claude/aa-hooks.json`, set `hooks.<name>.enabled = false`, write the file, confirm
 - `on` → enable all 7 hooks
 - `off` → disable all 7 hooks
 - bad input → show usage:
@@ -62,3 +58,5 @@ Examples:
 When writing, preserve the version field and any unknown hook keys (forward compatibility).
 
 Make sure `~/.claude/` exists (`mkdir -p`) before writing.
+
+Use `$HOME/.claude/aa-hooks.json` instead of a literal `~` path in Bash commands. If the file does not exist, treat it as `{"version":1,"hooks":{}}`.
