@@ -1,0 +1,25 @@
+{
+  "mcpServers": {
+    "agent-architects": {
+      "url": "https://aa-mcp-server-production.up.railway.app/mcp",
+      "envFile": "~/.claude/secrets/aa-mcp.env"
+    },
+    "sentry": {
+      "url": "https://mcp.sentry.dev/mcp",
+      "transport": "http"
+    }
+  },
+  "permissions": {
+    "additionalAllow": [
+      "Bash(git status*)",
+      "Bash(git log*)",
+      "Bash(git diff*)",
+      "Bash(git add:*)",
+      "Bash(git add *)",
+      "Bash(git branch*)",
+      "Bash(git checkout*)",
+      "Bash(npm run typecheck*)",
+      "Bash(npm test*)"
+    ]
+  }
+}

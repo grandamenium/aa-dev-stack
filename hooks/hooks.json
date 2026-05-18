@@ -1,0 +1,41 @@
+{
+  "PreToolUse": [
+    {
+      "matcher": "Edit|Write|MultiEdit",
+      "hooks": [
+        { "type": "command", "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/secret-scan.sh" }
+      ]
+    },
+    {
+      "matcher": "Bash",
+      "hooks": [
+        { "type": "command", "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/dangerous-bash-firewall.sh" },
+        { "type": "command", "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/git-push-guard.sh" }
+      ]
+    }
+  ],
+  "PostToolUse": [
+    {
+      "matcher": "Edit|Write|MultiEdit",
+      "hooks": [
+        { "type": "command", "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/auto-format.sh" }
+      ]
+    }
+  ],
+  "Stop": [
+    {
+      "hooks": [
+        { "type": "command", "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/typecheck-on-stop.sh", "timeout_seconds": 20 },
+        { "type": "command", "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/test-affected-on-stop.sh", "timeout_seconds": 20 }
+      ]
+    }
+  ],
+  "SessionStart": [
+    {
+      "matcher": "startup|resume|clear",
+      "hooks": [
+        { "type": "command", "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/session-start-context.sh" }
+      ]
+    }
+  ]
+}

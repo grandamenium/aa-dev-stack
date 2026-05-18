@@ -1,0 +1,49 @@
+{
+  "_comment": "Community skills that installer.sh bundles via `claude plugin install` calls. Single source of truth for bundled dependencies.",
+
+  "marketplaces_to_add": [
+    { "spec": "anthropics/claude-plugins-official", "note": "frontend-design, claude-api, etc." },
+    { "spec": "supabase/agent-skills", "note": "supabase + postgres-best-practices" },
+    { "spec": "Leonxlnx/taste-skill", "note": "3-dial frontend iteration" },
+    { "spec": "thepushkarp/handoff", "note": "session handoff + PreCompact hook" },
+    { "spec": "hanfang/claude-memory-skill", "note": "claude-memory pattern" },
+    { "spec": "grandamenium/dream-skill", "note": "James's own dream consolidation" },
+    { "spec": "grandamenium/local-ultrareview", "note": "James's own ultrareview pipeline" },
+    { "spec": "grandamenium/m2c1", "note": "James's own m2c1 orchestration framework" }
+  ],
+
+  "plugins_to_install": [
+    { "name": "frontend-design", "marketplace": "anthropics/claude-plugins-official", "ref": "stable" },
+    { "name": "claude-api", "marketplace": "anthropics/claude-plugins-official", "ref": "stable" },
+    { "name": "supabase", "marketplace": "supabase/agent-skills", "ref": "stable" },
+    { "name": "postgres-best-practices", "marketplace": "supabase/agent-skills", "ref": "stable" },
+    { "name": "taste-skill", "marketplace": "Leonxlnx/taste-skill", "ref": "stable" },
+    { "name": "handoff", "marketplace": "thepushkarp/handoff", "ref": "stable" },
+    { "name": "claude-memory-skill", "marketplace": "hanfang/claude-memory-skill", "ref": "stable" },
+    { "name": "dream-skill", "marketplace": "grandamenium/dream-skill", "ref": "stable" },
+    { "name": "local-ultrareview", "marketplace": "grandamenium/local-ultrareview", "ref": "stable" },
+    { "name": "m2c1", "marketplace": "grandamenium/m2c1", "ref": "stable" }
+  ],
+
+  "non_plugin_components": [
+    {
+      "name": "GSD-classic",
+      "type": "external-cli",
+      "install_command": "npm install -g gsd-classic",
+      "verify_command": "gsd --version",
+      "note": "Small-project methodology spine. Used in Track 2 Modules 2-8."
+    },
+    {
+      "name": "shadcn-mcp",
+      "type": "mcp",
+      "config_via": "/aa-connect shadcn",
+      "note": "MCP only — not a plugin. Configured per-project on demand."
+    },
+    {
+      "name": "21st-dev-magic-mcp",
+      "type": "mcp",
+      "config_via": "/aa-connect 21st-dev",
+      "note": "Multi-variant UI generation MCP."
+    }
+  ]
+}
