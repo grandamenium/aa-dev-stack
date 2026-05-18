@@ -4,7 +4,6 @@
   "marketplaces_to_add": [
     { "spec": "anthropics/claude-plugins-official", "note": "frontend-design, claude-api, etc." },
     { "spec": "supabase/agent-skills", "note": "supabase + postgres-best-practices" },
-    { "spec": "Leonxlnx/taste-skill", "note": "3-dial frontend iteration" },
     { "spec": "thepushkarp/handoff", "note": "session handoff + PreCompact hook" }
   ],
 
