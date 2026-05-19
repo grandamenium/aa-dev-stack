@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AA Dev Stack installer (v0.1.1)
+# AA Dev Stack installer (v0.1.2)
 #
 # Does the work `claude plugin install` doesn't:
 #   - Merges baseline CLAUDE.md into the selected Claude config dir (fenced markers, idempotent)
@@ -24,7 +24,7 @@
 set -euo pipefail
 
 # ─── constants ─────────────────────────────────────────────────────────
-readonly SCRIPT_VERSION="0.1.1"
+readonly SCRIPT_VERSION="0.1.2"
 readonly PLUGIN_NAME="aa-dev-stack"
 readonly REPO_URL="${AA_REPO_URL:-https://github.com/grandamenium/aa-dev-stack.git}"
 readonly REF="${AA_REF:-}"
@@ -44,6 +44,7 @@ CLAUDE_DIR=""
 BACKUP_ROOT=""
 BACKUP_DIR=""
 MARKER_FILE=""
+HOOKS_INSTALL_DIR=""
 PLUGIN_SCOPE=""
 SCOPE_LABEL=""
 
@@ -88,6 +89,7 @@ resolve_install_scope() {
   BACKUP_ROOT="$CLAUDE_DIR/backups/$PLUGIN_NAME"
   BACKUP_DIR="$BACKUP_ROOT/$TIMESTAMP"
   MARKER_FILE="$CLAUDE_DIR/.aa-dev-stack.installed"
+  HOOKS_INSTALL_DIR="$CLAUDE_DIR/hooks/$PLUGIN_NAME"
 }
 
 resolve_install_scope
@@ -361,6 +363,98 @@ install_settings() {
 
   mv "$tmp" "$target"
   ok "Merged: $target"
+}
+
+# ─── hook scripts + Claude hook settings ───────────────────────────────
+install_hook_scripts() {
+  step "Installing hook scripts"
+  local src="$TMP_WORK/src/hooks"
+
+  [[ ! -d "$src" ]] && { warn "No hooks/ in plugin"; return 0; }
+
+  if [[ "$DRY_RUN" == "1" ]]; then
+    info "(dry-run) would copy hook scripts to $HOOKS_INSTALL_DIR"
+    return 0
+  fi
+
+  rm -rf "$HOOKS_INSTALL_DIR"
+  mkdir -p "$HOOKS_INSTALL_DIR"
+  cp -R "$src"/. "$HOOKS_INSTALL_DIR"/
+  find "$HOOKS_INSTALL_DIR" -type f -name "*.sh" -exec chmod +x {} \;
+  ok "Copied hook scripts to $HOOKS_INSTALL_DIR"
+}
+
+install_hook_settings() {
+  step "Activating Claude hook settings"
+  local target="$CLAUDE_DIR/settings.json"
+
+  if [[ "$DRY_RUN" == "1" ]]; then
+    info "(dry-run) would merge AA hook lifecycle config into $target"
+    return 0
+  fi
+
+  if [[ ! -f "$target" ]]; then
+    echo '{}' > "$target"
+  fi
+
+  if ! jq empty "$target" 2>/dev/null; then
+    err "$target is not valid JSON. Backup at $BACKUP_DIR. Aborting."
+    exit 1
+  fi
+
+  local secret_scan dangerous_bash git_push auto_format typecheck affected_tests session_start
+  secret_scan="AA_HOOKS_CONFIG='$CLAUDE_DIR/aa-hooks.json' bash '$HOOKS_INSTALL_DIR/secret-scan.sh'"
+  dangerous_bash="AA_HOOKS_CONFIG='$CLAUDE_DIR/aa-hooks.json' bash '$HOOKS_INSTALL_DIR/dangerous-bash-firewall.sh'"
+  git_push="AA_HOOKS_CONFIG='$CLAUDE_DIR/aa-hooks.json' bash '$HOOKS_INSTALL_DIR/git-push-guard.sh'"
+  auto_format="AA_HOOKS_CONFIG='$CLAUDE_DIR/aa-hooks.json' bash '$HOOKS_INSTALL_DIR/auto-format.sh'"
+  typecheck="AA_HOOKS_CONFIG='$CLAUDE_DIR/aa-hooks.json' bash '$HOOKS_INSTALL_DIR/typecheck-on-stop.sh'"
+  affected_tests="AA_HOOKS_CONFIG='$CLAUDE_DIR/aa-hooks.json' bash '$HOOKS_INSTALL_DIR/test-affected-on-stop.sh'"
+  session_start="AA_HOOKS_CONFIG='$CLAUDE_DIR/aa-hooks.json' bash '$HOOKS_INSTALL_DIR/session-start-context.sh'"
+
+  local tmp="${target}.tmp.$$"
+  jq \
+    --arg secret_scan "$secret_scan" \
+    --arg dangerous_bash "$dangerous_bash" \
+    --arg git_push "$git_push" \
+    --arg auto_format "$auto_format" \
+    --arg typecheck "$typecheck" \
+    --arg affected_tests "$affected_tests" \
+    --arg session_start "$session_start" \
+    '
+    def aa_hook($command; $timeout):
+      if $timeout == "" then
+        {"type":"command","command":$command}
+      else
+        {"type":"command","command":$command,"timeout":($timeout | tonumber)}
+      end;
+    def append_unique($items):
+      . as $existing
+      | reduce $items[] as $item ($existing; if any(.[]?; . == $item) then . else . + [$item] end);
+
+    .hooks = (.hooks // {})
+    | .hooks.PreToolUse = ((.hooks.PreToolUse // []) | append_unique([
+        {"matcher":"Edit|Write|MultiEdit","hooks":[aa_hook($secret_scan; "")]},
+        {"matcher":"Bash","hooks":[aa_hook($dangerous_bash; ""), aa_hook($git_push; "")]}
+      ]))
+    | .hooks.PostToolUse = ((.hooks.PostToolUse // []) | append_unique([
+        {"matcher":"Edit|Write|MultiEdit","hooks":[aa_hook($auto_format; "")]}
+      ]))
+    | .hooks.Stop = ((.hooks.Stop // []) | append_unique([
+        {"hooks":[aa_hook($typecheck; "20"), aa_hook($affected_tests; "20")]}
+      ]))
+    | .hooks.SessionStart = ((.hooks.SessionStart // []) | append_unique([
+        {"matcher":"startup|resume|clear","hooks":[aa_hook($session_start; "")]}
+      ]))
+    ' "$target" > "$tmp"
+
+  if ! jq empty "$tmp" 2>/dev/null; then
+    err "Hook settings merge produced invalid JSON. Aborting (your settings are untouched)."
+    rm -f "$tmp"
+    exit 1
+  fi
+
+  mv "$tmp" "$target"
+  ok "Activated AA hooks in $target"
 }
 
 # ─── secrets directory ─────────────────────────────────────────────────
@@ -689,6 +783,8 @@ main() {
   backup_existing
   install_claudemd
   install_settings
+  install_hook_scripts
+  install_hook_settings
   install_secrets_dir
   install_aa_hooks_state
   install_short_name_commands

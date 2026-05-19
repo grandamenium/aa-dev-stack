@@ -53,6 +53,7 @@ readonly PLUGIN_SCOPE
 readonly SCOPE_LABEL
 readonly BACKUP_ROOT="$CLAUDE_DIR/backups/aa-dev-stack"
 readonly MARKER_FILE="$CLAUDE_DIR/.aa-dev-stack.installed"
+readonly HOOKS_INSTALL_DIR="$CLAUDE_DIR/hooks/aa-dev-stack"
 
 if [[ -t 1 ]]; then
   C_RED=$'\033[0;31m'; C_GRN=$'\033[0;32m'; C_YEL=$'\033[1;33m'
@@ -90,6 +91,17 @@ fi
 if [[ -f "$CLAUDE_DIR/settings.json" ]] && command -v jq >/dev/null 2>&1; then
   tmp="$CLAUDE_DIR/settings.json.tmp.$$"
   jq '
+    def strip_aa_hooks:
+      if type == "array" then
+        [
+          .[]
+          | if (.hooks? and (.hooks | type == "array")) then
+              .hooks = ([.hooks[] | select((.command // "") | contains("/hooks/aa-dev-stack/") | not)])
+            else . end
+          | select((.hooks? | type != "array") or (.hooks | length > 0))
+        ]
+      else . end;
+
     .mcpServers |= (
       if . == null then null
       else
@@ -103,6 +115,11 @@ if [[ -f "$CLAUDE_DIR/settings.json" ]] && command -v jq >/dev/null 2>&1; then
         end
       )
     | if .enabledPlugins == {} then del(.enabledPlugins) else . end
+    | .hooks.PreToolUse |= strip_aa_hooks
+    | .hooks.PostToolUse |= strip_aa_hooks
+    | .hooks.Stop |= strip_aa_hooks
+    | .hooks.SessionStart |= strip_aa_hooks
+    | if (.hooks // {}) == {} then del(.hooks) else . end
   ' "$CLAUDE_DIR/settings.json" > "$tmp"
   mv "$tmp" "$CLAUDE_DIR/settings.json"
   ok "Stripped AA additions from settings.json"
@@ -115,6 +132,11 @@ for f in "$CLAUDE_DIR/aa-hooks.json" "$MARKER_FILE"; do
     ok "Removed $f"
   fi
 done
+
+if [[ -d "$HOOKS_INSTALL_DIR" ]]; then
+  rm -rf "$HOOKS_INSTALL_DIR"
+  ok "Removed $HOOKS_INSTALL_DIR"
+fi
 
 # 4. Remove AA commands (only the ones we installed)
 for c in aa.md aa-init.md aa-connect.md aa-hooks.md commit.md pr.md worktree.md finish.md cleanup.md; do

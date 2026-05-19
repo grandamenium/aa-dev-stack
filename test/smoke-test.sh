@@ -272,6 +272,25 @@ else
   fail "installer not testable" "Expected $installer"
 fi
 
+# ─── 17. Claude settings has active AA hooks ──────────────────────────
+banner "TEST 17: Claude settings has active AA hooks"
+if [[ -f "$CLAUDE_DIR/settings.json" ]] && command -v jq >/dev/null 2>&1; then
+  hook_refs=$(jq '[.. | objects | .command? // empty | select(contains("/hooks/aa-dev-stack/"))] | length' "$CLAUDE_DIR/settings.json" 2>/dev/null || echo 0)
+  if [[ "$hook_refs" -ge 7 ]]; then
+    pass "settings.json has AA hook commands wired"
+  else
+    fail "settings.json has $hook_refs AA hook command refs, expected at least 7" "Re-run installer with hook settings support"
+  fi
+else
+  fail "settings.json missing or jq unavailable for hook config check" "Re-run installer; install jq"
+fi
+
+if [[ -d "$CLAUDE_DIR/hooks/aa-dev-stack" ]]; then
+  pass "AA hook scripts installed under $CLAUDE_DIR/hooks/aa-dev-stack"
+else
+  fail "AA hook scripts missing" "Expected $CLAUDE_DIR/hooks/aa-dev-stack"
+fi
+
 # ─── REPORT ────────────────────────────────────────────────────────────
 banner "SMOKE TEST REPORT"
 printf 'Passed: %s%d%s   Failed: %s%d%s\n' "$C_GRN" "$PASSED" "$C_RST" "$C_RED" "$FAILED" "$C_RST"
