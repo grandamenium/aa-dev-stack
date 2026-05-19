@@ -7,10 +7,44 @@
 # Usage:
 #   bash test/smoke-cleanup.sh         (interactive: asks for confirmation)
 #   bash test/smoke-cleanup.sh --yes   (non-interactive)
+#   bash test/smoke-cleanup.sh --scope project --yes
 
 set -euo pipefail
 
-readonly CLAUDE_DIR="${AA_CLAUDE_DIR:-$HOME/.claude}"
+INSTALL_SCOPE="${AA_INSTALL_SCOPE:-user}"
+PROJECT_DIR="${AA_PROJECT_DIR:-$PWD}"
+YES=0
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --yes) YES=1; shift ;;
+    --scope)
+      [[ -n "${2:-}" ]] || { echo "--scope requires one of: user, global, project, local" >&2; exit 2; }
+      INSTALL_SCOPE="$2"; shift 2 ;;
+    --scope=*)
+      INSTALL_SCOPE="${1#--scope=}"; shift ;;
+    -h|--help)
+      sed -n '/^# Usage:/,/^$/p' "$0" | sed 's/^# \{0,1\}//'
+      exit 0 ;;
+    *) echo "Unknown flag: $1" >&2; exit 2 ;;
+  esac
+done
+
+case "$INSTALL_SCOPE" in
+  user|global)
+    INSTALL_SCOPE="user"
+    CLAUDE_DIR="${AA_CLAUDE_DIR:-$HOME/.claude}"
+    ;;
+  project|local)
+    CLAUDE_DIR="${AA_CLAUDE_DIR:-$PROJECT_DIR/.claude}"
+    ;;
+  *)
+    echo "Invalid --scope '$INSTALL_SCOPE'. Use one of: user, global, project, local" >&2
+    exit 2
+    ;;
+esac
+
+readonly CLAUDE_DIR
 readonly BACKUP_ROOT="$CLAUDE_DIR/backups/aa-dev-stack"
 readonly MARKER_FILE="$CLAUDE_DIR/.aa-dev-stack.installed"
 
@@ -23,9 +57,6 @@ fi
 info() { printf '%s[info]%s %s\n' "$C_BLU" "$C_RST" "$*"; }
 ok()   { printf '%s[ ok ]%s %s\n' "$C_GRN" "$C_RST" "$*"; }
 warn() { printf '%s[warn]%s %s\n' "$C_YEL" "$C_RST" "$*" >&2; }
-
-YES=0
-[[ "${1:-}" == "--yes" ]] && YES=1
 
 if [[ "$YES" != "1" ]]; then
   printf '%sThis will reverse the AA Dev Stack install. Continue? [y/N] %s' "$C_YEL" "$C_RST"

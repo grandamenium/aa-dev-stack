@@ -33,7 +33,7 @@ assert_contains() {
   local pattern="$2"
   local label="$3"
 
-  if grep -qiE "$pattern" "$file"; then
+  if grep -qiE -- "$pattern" "$file"; then
     pass "$label"
   else
     fail "$label missing" "Expected pattern '$pattern' in $file"
@@ -258,6 +258,18 @@ if [[ -d "$REPO_BASE/skills" ]]; then
   fi
 else
   fail "plugin skills directory missing" "Expected $REPO_BASE/skills"
+fi
+
+# ─── 16. installer supports global/user and project/local scope ───────
+banner "TEST 16: installer scope support"
+installer="$REPO_BASE/installer/install.sh"
+if [[ -f "$installer" ]]; then
+  assert_contains "$installer" "--scope" "installer documents --scope"
+  assert_contains "$installer" "user\\|global" "installer accepts user/global scope"
+  assert_contains "$installer" "project\\|local" "installer accepts project/local scope"
+  assert_contains "$installer" "AA_PROJECT_DIR|\\.claude" "installer resolves project target"
+else
+  fail "installer not testable" "Expected $installer"
 fi
 
 # ─── REPORT ────────────────────────────────────────────────────────────

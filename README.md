@@ -7,12 +7,37 @@ One install. Loaded Claude Code: baseline operating constitution, 7 safety hooks
 ## Install
 
 ```bash
-claude plugin marketplace add github:grandamenium/aa-marketplace
-claude plugin install aa-dev-stack
-curl -fsSL https://raw.githubusercontent.com/grandamenium/aa-dev-stack/main/installer/install.sh | bash
+claude plugin marketplace add --scope user github:grandamenium/aa-marketplace
+claude plugin install --scope user aa-dev-stack
+curl -fsSL https://raw.githubusercontent.com/grandamenium/aa-dev-stack/main/installer/install.sh | bash -s -- --scope user
 ```
 
 The plugin install gives you commands, hooks, and first-party skills. The installer script does the extra work the plugin system doesn't: merges the baseline CLAUDE.md, copies commands for short names, creates the secrets directory, and bundles ten community skills.
+
+### Install scope
+
+Global/user install:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/grandamenium/aa-dev-stack/main/installer/install.sh | bash -s -- --scope user
+```
+
+Project/local install from the project root:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/grandamenium/aa-dev-stack/main/installer/install.sh | bash -s -- --scope project
+```
+
+Scope behavior:
+
+| Scope | Installer target | Notes |
+|---|---|---|
+| `user` or `global` | `~/.claude` | Default. Sets up the user's Claude Code environment. |
+| `project` or `local` | `$PWD/.claude` | Keeps AA Dev Stack files inside the current project by default. |
+
+The installer is merge/idempotent, not a blanket overwrite. It backs up existing Claude config files before changing them, merges `settings.json`, and updates `CLAUDE.md` only inside the managed AA Dev Stack marker block. Use `--dry-run` to preview target paths first, or `--skip-claudemd` if you do not want the installer to touch `CLAUDE.md`.
+
+For tests or advanced installs, `AA_CLAUDE_DIR=/custom/path` overrides the target directory and `AA_PROJECT_DIR=/path/to/project` changes the project root used by `--scope project`.
 
 ## What you get
 

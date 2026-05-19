@@ -1,49 +1,63 @@
 #!/usr/bin/env bash
-# AA Dev Stack installer (v0.1.0)
+# AA Dev Stack installer (v0.1.1)
 #
 # Does the work `claude plugin install` doesn't:
-#   - Merges baseline CLAUDE.md into ~/.claude/CLAUDE.md (fenced markers, idempotent)
-#   - Deep-merges settings-template.json into ~/.claude/settings.json
-#   - Creates ~/.claude/secrets/ at 700
-#   - Writes ~/.claude/aa-hooks.json (default state: 6 enabled, test-affected-on-stop disabled)
-#   - Copies command files to ~/.claude/commands/ for short names
+#   - Merges baseline CLAUDE.md into the selected Claude config dir (fenced markers, idempotent)
+#   - Deep-merges settings-template.json into the selected settings.json
+#   - Creates secrets/ at 700 in the selected Claude config dir
+#   - Writes aa-hooks.json (default state: 6 enabled, test-affected-on-stop disabled)
+#   - Copies command files to commands/ for short names
 #   - BUNDLES community skills via `claude plugin install` calls
 #   - Installs GSD-classic via npm
-#   - Pre-seeds ~/.claude/memory/aa-onboarding-patterns.md
-#   - Writes ~/.claude/.aa-dev-stack.installed marker (git_sha + timestamp)
+#   - Pre-seeds memory/aa-onboarding-patterns.md
+#   - Writes .aa-dev-stack.installed marker (git_sha + timestamp)
 #
 # Idempotent: safe to re-run.
 #
 # Usage:
 #   curl -fsSL https://raw.githubusercontent.com/grandamenium/aa-dev-stack/main/installer/install.sh | bash
 #   curl -fsSL ... | bash -s -- --dry-run
+#   curl -fsSL ... | bash -s -- --scope user
+#   curl -fsSL ... | bash -s -- --scope project
 #   curl -fsSL ... | bash -s -- --skip-community-skills
 
 set -euo pipefail
 
 # ─── constants ─────────────────────────────────────────────────────────
-readonly SCRIPT_VERSION="0.1.0"
+readonly SCRIPT_VERSION="0.1.1"
 readonly PLUGIN_NAME="aa-dev-stack"
 readonly REPO_URL="${AA_REPO_URL:-https://github.com/grandamenium/aa-dev-stack.git}"
 readonly REF="${AA_REF:-}"
-readonly CLAUDE_DIR="${AA_CLAUDE_DIR:-$HOME/.claude}"
-readonly BACKUP_ROOT="$CLAUDE_DIR/backups/$PLUGIN_NAME"
 readonly TIMESTAMP="$(date -u +%Y%m%dT%H%M%SZ)"
-readonly BACKUP_DIR="$BACKUP_ROOT/$TIMESTAMP"
-readonly MARKER_FILE="$CLAUDE_DIR/.aa-dev-stack.installed"
 readonly REQUIRED_TOOLS=(git jq curl)
 
 # ─── flags ─────────────────────────────────────────────────────────────
 DRY_RUN=0
 SKIP_CLAUDEMD=0
 SKIP_COMMUNITY=0
+SKIP_GSD=0
 FORCE="${AA_FORCE:-0}"
+INSTALL_SCOPE="${AA_INSTALL_SCOPE:-user}"
+PROJECT_DIR="${AA_PROJECT_DIR:-$PWD}"
+
+CLAUDE_DIR=""
+BACKUP_ROOT=""
+BACKUP_DIR=""
+MARKER_FILE=""
+PLUGIN_SCOPE=""
+SCOPE_LABEL=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --dry-run)               DRY_RUN=1; shift ;;
+    --scope)
+      [[ -n "${2:-}" ]] || { echo "--scope requires one of: user, global, project, local" >&2; exit 2; }
+      INSTALL_SCOPE="$2"; shift 2 ;;
+    --scope=*)
+      INSTALL_SCOPE="${1#--scope=}"; shift ;;
     --skip-claudemd)         SKIP_CLAUDEMD=1; shift ;;
     --skip-community-skills) SKIP_COMMUNITY=1; shift ;;
+    --skip-gsd)              SKIP_GSD=1; shift ;;
     --force)                 FORCE=1; shift ;;
     -h|--help)
       sed -n '/^# Usage:/,/^$/p' "$0" | sed 's/^# \{0,1\}//'
@@ -51,6 +65,32 @@ while [[ $# -gt 0 ]]; do
     *) echo "Unknown flag: $1" >&2; exit 2 ;;
   esac
 done
+
+resolve_install_scope() {
+  case "$INSTALL_SCOPE" in
+    user|global)
+      INSTALL_SCOPE="user"
+      PLUGIN_SCOPE="user"
+      SCOPE_LABEL="global/user"
+      CLAUDE_DIR="${AA_CLAUDE_DIR:-$HOME/.claude}"
+      ;;
+    project|local)
+      PLUGIN_SCOPE="$INSTALL_SCOPE"
+      SCOPE_LABEL="$INSTALL_SCOPE"
+      CLAUDE_DIR="${AA_CLAUDE_DIR:-$PROJECT_DIR/.claude}"
+      ;;
+    *)
+      echo "Invalid --scope '$INSTALL_SCOPE'. Use one of: user, global, project, local" >&2
+      exit 2
+      ;;
+  esac
+
+  BACKUP_ROOT="$CLAUDE_DIR/backups/$PLUGIN_NAME"
+  BACKUP_DIR="$BACKUP_ROOT/$TIMESTAMP"
+  MARKER_FILE="$CLAUDE_DIR/.aa-dev-stack.installed"
+}
+
+resolve_install_scope
 
 # ─── colors ────────────────────────────────────────────────────────────
 if [[ -t 1 ]] && [[ "${NO_COLOR:-}" == "" ]]; then
@@ -116,9 +156,19 @@ preflight() {
     warn "Continuing anyway. Run \`claude plugin install\` after Claude Code is installed."
   fi
 
+  info "Install scope: $SCOPE_LABEL"
+  info "Claude config target: $CLAUDE_DIR"
+  if [[ "$INSTALL_SCOPE" != "user" ]]; then
+    info "Project root: $PROJECT_DIR"
+  fi
+
   if [[ ! -d "$CLAUDE_DIR" ]]; then
-    info "Creating $CLAUDE_DIR (first-time setup)"
+    info "Creating $CLAUDE_DIR (first-time setup for selected scope)"
     run "mkdir -p '$CLAUDE_DIR'"
+  fi
+  if [[ "$DRY_RUN" == "1" ]] && [[ ! -d "$CLAUDE_DIR" ]]; then
+    info "(dry-run) target does not exist yet; skipping writable check"
+    return 0
   fi
   if [[ ! -w "$CLAUDE_DIR" ]]; then
     err "$CLAUDE_DIR is not writable. Check permissions."
@@ -138,12 +188,10 @@ fetch_source() {
     clone_args+=(--branch "$REF")
   fi
 
-  run "git clone ${clone_args[*]} '$REPO_URL' '$TMP_WORK/src' >/dev/null 2>&1"
-  if [[ "$DRY_RUN" != "1" ]]; then
-    local sha
-    sha="$(git -C "$TMP_WORK/src" rev-parse --short HEAD)"
-    ok "Cloned at commit $sha"
-  fi
+  git clone "${clone_args[@]}" "$REPO_URL" "$TMP_WORK/src" >/dev/null 2>&1
+  local sha
+  sha="$(git -C "$TMP_WORK/src" rev-parse --short HEAD)"
+  ok "Cloned at commit $sha"
 }
 
 # ─── upgrade vs fresh detection ────────────────────────────────────────
@@ -317,8 +365,14 @@ install_settings() {
 
 # ─── secrets directory ─────────────────────────────────────────────────
 install_secrets_dir() {
-  step "Provisioning ~/.claude/secrets/"
+  step "Provisioning secrets/"
   local dir="$CLAUDE_DIR/secrets"
+  if [[ "$DRY_RUN" == "1" ]]; then
+    info "(dry-run) would create $dir if missing"
+    info "(dry-run) would set permissions: 700 on dir, 600 on files"
+    return 0
+  fi
+
   if [[ ! -d "$dir" ]]; then
     run "mkdir -p '$dir'"
     ok "Created $dir"
@@ -335,7 +389,7 @@ install_secrets_dir() {
   local readme="$dir/README.md"
   if [[ ! -f "$readme" ]] && [[ "$DRY_RUN" != "1" ]]; then
     cat > "$readme" <<'EOF'
-# ~/.claude/secrets/
+# Claude secrets directory
 
 Per-service credentials managed by `/aa-connect`.
 
@@ -383,7 +437,7 @@ EOF
 
 # ─── copy commands for short names ─────────────────────────────────────
 install_short_name_commands() {
-  step "Installing commands to ~/.claude/commands/ for short names"
+  step "Installing commands for short names"
   local src="$TMP_WORK/src/commands"
   local dst="$CLAUDE_DIR/commands"
 
@@ -407,7 +461,7 @@ install_short_name_commands() {
 
 # ─── pre-seed memory for /promote-memory (v1.1) ────────────────────────
 install_seed_memory() {
-  step "Pre-seeding ~/.claude/memory/ for future /promote-memory"
+  step "Pre-seeding memory/ for future /promote-memory"
   local dir="$CLAUDE_DIR/memory"
   local file="$dir/aa-onboarding-patterns.md"
 
@@ -441,7 +495,7 @@ When working on AA projects, always start with:
 Never paste API keys directly into chat or commit them. Use:
   /aa-connect <service>
 
-Each service has its own onboarding flow. Keys land in ~/.claude/secrets/ at 600.
+Each service has its own onboarding flow. Keys land in the selected Claude secrets directory at 600.
 EOF
   ok "Seeded $file"
 }
@@ -477,7 +531,7 @@ install_community_skills() {
   if [[ -n "$marketplaces" ]]; then
     while IFS= read -r mp; do
       [[ -z "$mp" ]] && continue
-      if claude plugin marketplace add "$mp" >/dev/null 2>&1; then
+      if claude plugin marketplace add --scope "$PLUGIN_SCOPE" "$mp" >/dev/null 2>&1; then
         ok "marketplace: $mp"
       else
         warn "marketplace add failed: $mp (may already be added or repo unavailable)"
@@ -488,7 +542,7 @@ install_community_skills() {
   if [[ -n "$plugins" ]]; then
     while IFS= read -r p; do
       [[ -z "$p" ]] && continue
-      if claude plugin install "$p" >/dev/null 2>&1; then
+      if claude plugin install --scope "$PLUGIN_SCOPE" "$p" >/dev/null 2>&1; then
         ok "plugin: $p"
       else
         warn "plugin install failed: $p (may already be installed or marketplace mismatch)"
@@ -527,7 +581,18 @@ install_community_skills() {
     done <<< "$legacy_skills"
   fi
 
-  # GSD-classic via npm (separate path)
+  # GSD-classic via npm (separate path). Keep project/local installs from writing
+  # global npm state unless the user installs GSD separately.
+  if [[ "$SKIP_GSD" == "1" ]]; then
+    info "Skipping GSD install (per --skip-gsd)"
+    return 0
+  fi
+  if [[ "$INSTALL_SCOPE" != "user" ]]; then
+    warn "Skipping global GSD npm install for $SCOPE_LABEL scope"
+    warn "Install GSD globally later if needed: npm install -g get-shit-done-cc"
+    return 0
+  fi
+
   if command -v npm >/dev/null 2>&1; then
     if ! command -v get-shit-done-cc >/dev/null 2>&1; then
       if npm install -g get-shit-done-cc >/dev/null 2>&1; then
@@ -557,7 +622,9 @@ write_marker() {
     --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
     --arg kind "$INSTALL_KIND" \
     --arg backup "$BACKUP_DIR" \
-    '{version:$version, git_sha:$sha, installed_at:$ts, install_kind:$kind, last_backup:$backup}' \
+    --arg scope "$INSTALL_SCOPE" \
+    --arg target "$CLAUDE_DIR" \
+    '{version:$version, git_sha:$sha, installed_at:$ts, install_kind:$kind, install_scope:$scope, target_dir:$target, last_backup:$backup}' \
     > "$MARKER_FILE"
   chmod 644 "$MARKER_FILE"
   ok "Marker: $MARKER_FILE"
@@ -566,9 +633,29 @@ write_marker() {
 # ─── done banner ───────────────────────────────────────────────────────
 print_done() {
   step "Install complete"
+  if [[ "$DRY_RUN" == "1" ]]; then
+    cat <<EOF
+
+${C_GRN}AA Dev Stack v${SCRIPT_VERSION}${C_RST} dry run complete (scope: ${SCOPE_LABEL}).
+
+No files were modified.
+
+Target preview:
+  Scope:     $SCOPE_LABEL
+  Target:    $CLAUDE_DIR
+  Commands:  $CLAUDE_DIR/commands/
+  Settings:  $CLAUDE_DIR/settings.json
+  CLAUDE.md: $CLAUDE_DIR/CLAUDE.md
+  Secrets:   $CLAUDE_DIR/secrets/
+  Hooks state: $CLAUDE_DIR/aa-hooks.json
+
+EOF
+    return 0
+  fi
+
   cat <<EOF
 
-${C_GRN}AA Dev Stack v${SCRIPT_VERSION}${C_RST} installed (${INSTALL_KIND}).
+${C_GRN}AA Dev Stack v${SCRIPT_VERSION}${C_RST} installed (${INSTALL_KIND}, scope: ${SCOPE_LABEL}).
 
 Next steps:
   1. Open a NEW Claude Code session (so hooks/skills reload)
@@ -576,6 +663,8 @@ Next steps:
   3. Run:  ${C_BLU}/aa-connect agent-architects${C_RST}  to wire up AA MCP
 
 Files:
+  Scope:     $SCOPE_LABEL
+  Target:    $CLAUDE_DIR
   Commands:  $CLAUDE_DIR/commands/
   Settings:  $CLAUDE_DIR/settings.json    (merged, not overwritten)
   CLAUDE.md: $CLAUDE_DIR/CLAUDE.md        (managed block between markers)
