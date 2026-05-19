@@ -753,8 +753,9 @@ ${C_GRN}AA Dev Stack v${SCRIPT_VERSION}${C_RST} installed (${INSTALL_KIND}, scop
 
 Next steps:
   1. Open a NEW Claude Code session (so hooks/skills reload)
-  2. Run:  ${C_BLU}/aa-hooks${C_RST}     to see all 7 hooks
-  3. Run:  ${C_BLU}/aa-connect agent-architects${C_RST}  to wire up AA MCP
+  2. Run:  ${C_BLU}/hooks${C_RST}        to verify Claude Code sees the hooks
+  3. Run:  ${C_BLU}/aa-hooks list${C_RST} to see/toggle AA hook state
+  4. Run:  ${C_BLU}/aa-connect agent-architects${C_RST}  to wire up AA MCP
 
 Files:
   Scope:     $SCOPE_LABEL
