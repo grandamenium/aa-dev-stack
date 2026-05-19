@@ -2,7 +2,7 @@
 
 The opinionated agentic dev stack for Agent Architects members.
 
-One install. Loaded Claude Code: baseline operating constitution, 7 safety hooks, 9 slash commands, community-bundled skills, and the AA MCP for community-aware AI.
+One install. Loaded Claude Code: baseline operating constitution, 7 safety hooks, 9 slash commands, first-party AA skills, community-bundled skills, and the AA MCP for community-aware AI.
 
 ## Install
 
@@ -12,7 +12,7 @@ claude plugin install aa-dev-stack
 curl -fsSL https://raw.githubusercontent.com/grandamenium/aa-dev-stack/main/installer/install.sh | bash
 ```
 
-The plugin install gives you commands, hooks, and skills. The installer script does the extra work the plugin system doesn't: merges the baseline CLAUDE.md, copies commands for short names, creates the secrets directory, and bundles ten community skills.
+The plugin install gives you commands, hooks, and first-party skills. The installer script does the extra work the plugin system doesn't: merges the baseline CLAUDE.md, copies commands for short names, creates the secrets directory, and bundles ten community skills.
 
 ## What you get
 
@@ -47,6 +47,19 @@ A 111-line operating constitution. State assumptions or halt. Verify before clai
 
 Toggle any via `/aa-hooks disable <name>`.
 
+### First-party AA skills
+
+Shipped directly with this plugin:
+
+| Skill | What it does |
+|---|---|
+| `should-compact` | Decides whether the current session should compact or continue |
+| `skill-promoter` | Finds repeatable workflows that deserve promotion into reusable skills, then routes approved creation through `skill-creator` when available |
+| `skill-optimizer` | Improves existing skills from transcript/log evidence rather than vibe-based rewrites |
+| `context-audit` | Read-only audit of context loading, project memory, skills, hooks, MCP, and orchestration footprint |
+
+`skill-creator` remains the creation path when a new skill is approved. `skill-promoter` identifies and scopes candidates; `skill-creator` performs the actual scaffold/create workflow where installed.
+
 ### Bundled community skills
 
 Installed automatically by `installer.sh`:
@@ -71,7 +84,7 @@ Installed automatically by `installer.sh`:
 bash test/smoke-test.sh
 ```
 
-Runs 10 critical-path tests. Reports pass/fail with concrete next steps.
+Runs the critical-path install checks plus V2 first-party skill checks. Reports pass/fail with concrete next steps.
 
 ## Uninstall / reset
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AA Dev Stack smoke test (v0.1.0 — 10 critical-path tests)
+# AA Dev Stack smoke test (v0.2.0 — critical-path install + V2 skill tests)
 #
 # Runs after installer. Reports pass/fail with concrete next steps.
 # Exit 0 = all pass. Exit 1 = at least one fail.
@@ -27,6 +27,18 @@ pass() { printf '%s[PASS]%s %s\n' "$C_GRN" "$C_RST" "$1"; PASSED=$((PASSED+1)); 
 fail() { printf '%s[FAIL]%s %s\n' "$C_RED" "$C_RST" "$1"; if [[ -n "${2:-}" ]]; then printf '       %s\n' "$2"; fi; FAILED=$((FAILED+1)); TESTS+=("FAIL|$1|${2:-}"); }
 skip() { printf '%s[SKIP]%s %s — %s\n' "$C_YEL" "$C_RST" "$1" "${2:-}"; TESTS+=("SKIP|$1|${2:-}"); }
 banner() { printf '\n%s━━━ %s ━━━%s\n' "$C_BLU" "$1" "$C_RST"; }
+
+assert_contains() {
+  local file="$1"
+  local pattern="$2"
+  local label="$3"
+
+  if grep -qiE "$pattern" "$file"; then
+    pass "$label"
+  else
+    fail "$label missing" "Expected pattern '$pattern' in $file"
+  fi
+}
 
 # ─── 1. Marker file exists ─────────────────────────────────────────────
 banner "TEST 1: install marker"
@@ -167,6 +179,85 @@ if [[ "$missing_count" -eq 0 ]]; then
   pass "all 9 commands present in $CLAUDE_DIR/commands/"
 else
   fail "$missing_count commands missing from $CLAUDE_DIR/commands/" "Re-run installer (install_short_name_commands step)"
+fi
+
+# ─── 11. V2 first-party skills exist with frontmatter ─────────────────
+banner "TEST 11: V2 skill files and frontmatter"
+expected_skills=(should-compact skill-promoter skill-optimizer context-audit)
+missing_skill_count=0
+for s in "${expected_skills[@]}"; do
+  skill_file="$REPO_BASE/skills/$s/SKILL.md"
+  if [[ ! -f "$skill_file" ]]; then
+    fail "skill $s missing" "Expected $skill_file"
+    missing_skill_count=$((missing_skill_count + 1))
+    continue
+  fi
+
+  first_line=$(sed -n '1p' "$skill_file")
+  if [[ "$first_line" != "---" ]]; then
+    fail "skill $s frontmatter missing" "Expected $skill_file to start with YAML frontmatter"
+    missing_skill_count=$((missing_skill_count + 1))
+    continue
+  fi
+
+  if grep -qE "^name:[[:space:]]*$s[[:space:]]*$" "$skill_file" \
+     && grep -qE "^description:[[:space:]].+" "$skill_file"; then
+    pass "skill $s has stable name and description"
+  else
+    fail "skill $s frontmatter incomplete" "Expected name: $s and description: in $skill_file"
+    missing_skill_count=$((missing_skill_count + 1))
+  fi
+done
+
+if [[ "$missing_skill_count" -eq 0 ]]; then
+  pass "all V2 first-party skill files are discoverable under skills/"
+fi
+
+# ─── 12. skill-promoter guardrails ────────────────────────────────────
+banner "TEST 12: skill-promoter requires exploration and skill-creator routing"
+promoter="$REPO_BASE/skills/skill-promoter/SKILL.md"
+if [[ -f "$promoter" ]]; then
+  assert_contains "$promoter" "broad project exploration|explore broadly" "skill-promoter requires broad exploration"
+  assert_contains "$promoter" "skill-creator" "skill-promoter routes approved creation through skill-creator"
+else
+  fail "skill-promoter not testable" "Expected $promoter"
+fi
+
+# ─── 13. skill-optimizer evidence requirement ─────────────────────────
+banner "TEST 13: skill-optimizer requires transcript evidence"
+optimizer="$REPO_BASE/skills/skill-optimizer/SKILL.md"
+if [[ -f "$optimizer" ]]; then
+  assert_contains "$optimizer" "transcript|logs|evidence" "skill-optimizer requires transcript/log evidence"
+  assert_contains "$optimizer" "not vibes|without evidence|Evidence floor" "skill-optimizer blocks vibe-based rewrites"
+else
+  fail "skill-optimizer not testable" "Expected $optimizer"
+fi
+
+# ─── 14. context-audit safety and CLAUDE.md size threshold ────────────
+banner "TEST 14: context-audit is read-only and flags large CLAUDE.md"
+context_audit="$REPO_BASE/skills/context-audit/SKILL.md"
+if [[ -f "$context_audit" ]]; then
+  assert_contains "$context_audit" "read-only|Do not modify" "context-audit is read-only"
+  assert_contains "$context_audit" "200 lines|>200|above 200" "context-audit flags CLAUDE.md above 200 lines"
+else
+  fail "context-audit not testable" "Expected $context_audit"
+fi
+
+# ─── 15. plugin source exposes first-party skills ─────────────────────
+banner "TEST 15: plugin source exposes first-party skills"
+if [[ -d "$REPO_BASE/skills" ]]; then
+  source_exposure_missing=0
+  for s in "${expected_skills[@]}"; do
+    [[ -f "$REPO_BASE/skills/$s/SKILL.md" ]] || source_exposure_missing=$((source_exposure_missing + 1))
+  done
+
+  if [[ "$source_exposure_missing" -eq 0 ]]; then
+    pass "plugin source exposes all first-party skills under skills/"
+  else
+    fail "$source_exposure_missing plugin skills not exposed" "Expected all first-party skills under $REPO_BASE/skills/"
+  fi
+else
+  fail "plugin skills directory missing" "Expected $REPO_BASE/skills"
 fi
 
 # ─── REPORT ────────────────────────────────────────────────────────────

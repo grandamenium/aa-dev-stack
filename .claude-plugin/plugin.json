@@ -1,6 +1,6 @@
 {
   "name": "aa-dev-stack",
-  "description": "Opinionated agentic dev stack for Agent Architects members. Hooks, slash commands, baseline CLAUDE.md, and bundled community skills.",
+  "description": "Opinionated agentic dev stack for Agent Architects members. Hooks, slash commands, baseline CLAUDE.md, first-party AA skills, and bundled community skills.",
   "author": {
     "name": "James Goldbach",
     "email": "james@grandamenium.com"
