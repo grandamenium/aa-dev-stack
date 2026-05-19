@@ -33,9 +33,13 @@ done
 case "$INSTALL_SCOPE" in
   user|global)
     INSTALL_SCOPE="user"
+    PLUGIN_SCOPE="user"
+    SCOPE_LABEL="global/user"
     CLAUDE_DIR="${AA_CLAUDE_DIR:-$HOME/.claude}"
     ;;
   project|local)
+    PLUGIN_SCOPE="$INSTALL_SCOPE"
+    SCOPE_LABEL="$INSTALL_SCOPE"
     CLAUDE_DIR="${AA_CLAUDE_DIR:-$PROJECT_DIR/.claude}"
     ;;
   *)
@@ -45,6 +49,8 @@ case "$INSTALL_SCOPE" in
 esac
 
 readonly CLAUDE_DIR
+readonly PLUGIN_SCOPE
+readonly SCOPE_LABEL
 readonly BACKUP_ROOT="$CLAUDE_DIR/backups/aa-dev-stack"
 readonly MARKER_FILE="$CLAUDE_DIR/.aa-dev-stack.installed"
 
@@ -120,7 +126,7 @@ ok "Removed AA commands from $CLAUDE_DIR/commands/"
 
 # 5. Remove plugin cache (if Claude Code is installed and managed the plugin)
 if command -v claude >/dev/null 2>&1; then
-  if claude plugin uninstall aa-dev-stack 2>/dev/null; then
+  if claude plugin uninstall --scope "$PLUGIN_SCOPE" aa-dev-stack --yes 2>/dev/null; then
     ok "Uninstalled aa-dev-stack plugin via Claude Code"
   else
     info "Claude Code did not have aa-dev-stack installed (or uninstall failed silently)"
@@ -140,7 +146,9 @@ if [[ -f "$CLAUDE_DIR/memory/aa-onboarding-patterns.md" ]]; then
 fi
 
 # 8. Leave secrets/ and backups/ alone (user data, explicit removal only)
-info "Skipping ~/.claude/secrets/ (user data — remove manually if needed)"
-info "Skipping ~/.claude/backups/aa-dev-stack/ (your backups — remove manually if needed)"
+info "Scope: $SCOPE_LABEL"
+info "Target: $CLAUDE_DIR"
+info "Skipping $CLAUDE_DIR/secrets/ (user data — remove manually if needed)"
+info "Skipping $CLAUDE_DIR/backups/aa-dev-stack/ (your backups — remove manually if needed)"
 
 printf '\n%sCleanup complete. Re-run installer to reinstall.%s\n' "$C_GRN" "$C_RST"
